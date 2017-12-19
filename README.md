@@ -2,5 +2,5 @@
 
 Some simple utility functions.
 
-* JsonHelper: working with maps.
-* Proxy: load/save proxy from/to environment, Gnome, etc.
+* [MapHelper](map_helper.go): working with maps.
+* [Proxy](proxy.go): load/save proxy from/to environment, Gnome, etc.
