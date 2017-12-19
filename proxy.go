@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"github.com/gobwas/glob"
+	"fmt"
 )
 
 type Proxy struct{
@@ -17,6 +18,15 @@ type Proxy struct{
 	Username string
 	Password string
 	Exceptions []string
+}
+
+func (p *Proxy) Debug() {
+	fmt.Printf("Protocol: %v\n", p.Protocol)
+	fmt.Printf("Address: %v\n", p.Address)
+	fmt.Printf("Port: %v\n", p.Port)
+	fmt.Printf("Username: %v\n", p.Username)
+	fmt.Printf("Password: %v\n", p.Password)
+	fmt.Printf("Exceptions: %v\n", p.Exceptions)
 }
 
 func (p *Proxy) MatchesUrl(address string) (bool, error) {
@@ -105,12 +115,12 @@ func LoadProxyFromEnvironment() (*Proxy, error) {
 
 }
 
-func LoadProxyFromGnome() *Proxy {
+func LoadProxyFromGnome() (*Proxy, error) {
 
 	s := glib.SettingsNew("org.gnome.system.proxy")
 	proxyMode := s.GetString("mode")
 	if proxyMode != "manual" {
-		return nil
+		return nil, nil
 	}
 
 	httpProxySettings := glib.SettingsNew("org.gnome.system.proxy.http")
@@ -119,6 +129,6 @@ func LoadProxyFromGnome() *Proxy {
 	p := Proxy{}
 	p.Address = httpProxySettings.GetString("host")
 	p.Port = httpProxySettings.GetInt("port")
-	return &p
+	return &p, nil
 
 }
