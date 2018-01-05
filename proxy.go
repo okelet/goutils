@@ -13,7 +13,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/pkg/errors"
-	"github.com/satori/uuid"
+	"github.com/satori/go.uuid"
 )
 
 var PROXYCHAINS_PATH string
@@ -65,7 +65,7 @@ func NewEmptyProxy(passwordManager ProxyPasswordManager) *Proxy {
 		passwordManager = NewSimpleProxyPasswordManager("")
 	}
 	p := Proxy{ProxyPasswordManager: passwordManager}
-	p.UUID = uuid.NewV4().String()
+	p.UUID = uuid.Must(uuid.NewV4()).String()
 	p.Exceptions = []string{}
 	return &p
 }
@@ -75,7 +75,7 @@ func NewProxyFromMap(h *MapHelper, passwordManager ProxyPasswordManager, loadPas
 		passwordManager = NewSimpleProxyPasswordManager("")
 	}
 	p := Proxy{ProxyPasswordManager: passwordManager}
-	p.UUID = h.GetString("uuid", uuid.NewV4().String())
+	p.UUID = h.GetString("uuid", uuid.Must(uuid.NewV4()).String())
 	p.Protocol = h.GetString("protocol", "http")
 	p.Address = h.GetString("address", "127.0.0.1")
 	p.Port = h.GetInt("port", 8080)
