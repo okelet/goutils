@@ -1,5 +1,7 @@
 package goutils
 
+import "sort"
+
 func ListContainsString(list []string, element string) bool {
 	for _, v := range list {
 		if v == element {
@@ -25,7 +27,6 @@ func FilterEmptyStrings(vs []string) []string {
 	})
 }
 
-
 func AddStringToList(list []string, elem string) []string {
 	found := false
 	for _, v := range list {
@@ -34,7 +35,7 @@ func AddStringToList(list []string, elem string) []string {
 			break
 		}
 	}
-	if ! found {
+	if !found {
 		list = append(list, elem)
 	}
 	return list
@@ -48,4 +49,19 @@ func RemoveStringFromList(list []string, elem string) []string {
 		}
 	}
 	return newList
+}
+
+func StringListsAreEqual(a1 []string, a2 []string) bool {
+	sort.Strings(a1)
+	sort.Strings(a2)
+	if len(a1) == len(a2) {
+		for i, v := range a1 {
+			if v != a2[i] {
+				return false
+			}
+		}
+	} else {
+		return false
+	}
+	return true
 }
