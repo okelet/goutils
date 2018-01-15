@@ -22,6 +22,8 @@ func NewMapHelperFromData(data map[string]interface{}) *MapHelper {
 
 func NewMapHelperFromJsonFile(configPath string, failIfNotFound bool) (*MapHelper, error) {
 
+	// TODO: Use funvtion LoadJsonFileAsMap
+
 	exists, err := FileExists(configPath)
 	if err != nil {
 		return nil, err

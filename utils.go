@@ -2,6 +2,7 @@ package goutils
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -65,6 +66,8 @@ func RunCommandAndWait(initialPath string, stdin io.Reader, command string, argu
 
 }
 
+// Returns the full path of the specified command, if it is in the path.
+// If the command is not found, no error is returned, but an empty string as path.
 func Which(command string) (string, error) {
 	err, _, exitCode, stdOut, stdErr := RunCommandAndWait("", nil, "bash", []string{"-c", "which " + command})
 	if err != nil {
@@ -240,4 +243,49 @@ func SetXdgAutostart(applicationId string, appPath string, appName string, icon 
 
 	return nil
 
+}
+
+func LoadJsonFileAsMap(path string, failIfNotFound bool) (map[string]interface{}, error) {
+
+	exists, err := FileExists(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		if failIfNotFound {
+			return nil, errors.Errorf("File %v doesn't exist.", path)
+		} else {
+			return map[string]interface{}{}, nil
+		}
+	}
+
+	reader, err := os.Open(path)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error opening file %v.", path)
+	}
+
+	decoder := json.NewDecoder(reader)
+
+	var x map[string]interface{}
+	err = decoder.Decode(&x)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error loading JSON from file %v.", path)
+	}
+
+	return x, nil
+
+}
+
+func SaveMapAsJsonFile(path string, data map[string]interface{}) error {
+	byteData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return errors.Wrapf(err, "Error marshalling map")
+	}
+	// TODO: usar algo como os.ModeFile, igual que hay os.ModeDir
+	err = ioutil.WriteFile(path, byteData, 0664)
+	if err != nil {
+		return errors.Wrapf(err, "Error saving JSON file")
+	}
+	return nil
 }
