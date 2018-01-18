@@ -225,12 +225,14 @@ func GetEnvironmentProxy(passwordManager ProxyPasswordManager) (*Proxy, error) {
 		}
 		p.Port = i
 	}
-	p.Username = parsedUrl.User.Username()
-	password, hasPassword := parsedUrl.User.Password()
-	if hasPassword {
-		err := passwordManager.SetProxyPassword(p, password)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error setting the password for the proxy")
+	if parsedUrl.User != nil {
+		p.Username = parsedUrl.User.Username()
+		password, hasPassword := parsedUrl.User.Password()
+		if hasPassword {
+			err := passwordManager.SetProxyPassword(p, password)
+			if err != nil {
+				return nil, errors.Wrap(err, "Error setting the password for the proxy")
+			}
 		}
 	}
 
