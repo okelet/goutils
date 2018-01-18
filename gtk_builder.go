@@ -177,6 +177,18 @@ func (b *BuilderBase) GetListStore(name string) (*gtk.ListStore, error) {
 	return widget, nil
 }
 
+func (b *BuilderBase) GetInfoBar(name string) (*gtk.InfoBar, error) {
+	obj, err := b.Builder.GetObject(name)
+	if err != nil {
+		return nil, errors.Errorf("Error getting %s", name)
+	}
+	widget, ok := obj.(*gtk.InfoBar)
+	if !ok {
+		return nil, errors.Errorf("Can't cast %s to gtk.Switch.", reflect.TypeOf(obj).String())
+	}
+	return widget, nil
+}
+
 func (b *BuilderBase) GetSwitch(name string) (*gtk.Switch, error) {
 	obj, err := b.Builder.GetObject(name)
 	if err != nil {
