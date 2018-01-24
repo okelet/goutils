@@ -32,9 +32,17 @@ func RunCommandBackground(command string, arguments []string) (int, *exec.Cmd, e
 	return cmd.Process.Pid, cmd, nil
 }
 
-func RunCommandAndWait(initialPath string, stdin io.Reader, command string, arguments []string) (error, int, int, string, string) {
+func RunCommandAndWait(initialPath string, stdin io.Reader, command string, arguments []string, env map[string]string) (error, int, int, string, string) {
 
 	cmd := exec.Command(command, arguments...)
+
+	if env != nil {
+		envList := []string{}
+		for key, val := range env {
+			envList = append(envList, fmt.Sprintf("%v=%v", key, val))
+		}
+		cmd.Env = envList
+	}
 
 	if stdin != nil {
 		cmd.Stdin = stdin
@@ -69,7 +77,7 @@ func RunCommandAndWait(initialPath string, stdin io.Reader, command string, argu
 // Returns the full path of the specified command, if it is in the path.
 // If the command is not found, no error is returned, but an empty string as path.
 func Which(command string) (string, error) {
-	err, _, exitCode, stdOut, stdErr := RunCommandAndWait("", nil, "bash", []string{"-c", "which " + command})
+	err, _, exitCode, stdOut, stdErr := RunCommandAndWait("", nil, "bash", []string{"-c", "which " + command}, map[string]string{})
 	if err != nil {
 		return "", errors.Wrapf(err, "Error locating command %s", command)
 	} else if exitCode == 1 {
