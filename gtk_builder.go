@@ -93,6 +93,18 @@ func (b *BuilderBase) GetTextView(name string) (*gtk.TextView, error) {
 	return widget, nil
 }
 
+func (b *BuilderBase) GetTextBuffer(name string) (*gtk.TextBuffer, error) {
+	obj, err := b.Builder.GetObject(name)
+	if err != nil {
+		return nil, errors.Errorf("Error getting %s", name)
+	}
+	widget, ok := obj.(*gtk.TextBuffer)
+	if !ok {
+		return nil, errors.Errorf("Can't cast %s to gtk.TextBuffer.", reflect.TypeOf(obj).String())
+	}
+	return widget, nil
+}
+
 func (b *BuilderBase) GetStatusbar(name string) (*gtk.Statusbar, error) {
 	obj, err := b.Builder.GetObject(name)
 	if err != nil {
