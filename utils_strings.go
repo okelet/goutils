@@ -1,6 +1,7 @@
 package goutils
 
 import "sort"
+import "unicode"
 
 func ListContainsString(list []string, element string) bool {
 	for _, v := range list {
@@ -64,4 +65,16 @@ func StringListsAreEqual(a1 []string, a2 []string) bool {
 		return false
 	}
 	return true
+}
+
+func EnsureFirstSentenceLetterLowercase(s string) string {
+	a := []rune(s)
+	a[0] = unicode.ToLower(a[0])
+	return string(a)
+}
+
+func EnsureFirstSentenceLetterUppercase(s string) string {
+	a := []rune(s)
+	a[0] = unicode.ToUpper(a[0])
+	return string(a)
 }
