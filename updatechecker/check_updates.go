@@ -3,6 +3,7 @@ package updatechecker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/juju/loggo"
 
@@ -23,22 +24,24 @@ type UpdateDetectedListener interface {
 }
 
 type CheckUpdatesThread struct {
-	Cron              *cron.Cron
-	Listeners         []UpdateDetectedListener
-	IntervalInSeconds int
-	GitHubUser        string
-	GitHubProject     string
-	CurrentVersion    string
+	Cron                      *cron.Cron
+	Listeners                 []UpdateDetectedListener
+	IntervalInSeconds         int
+	GitHubUser                string
+	GitHubProject             string
+	CurrentVersion            string
+	ExcludeMasterAndSnapshots bool
 }
 
-func NewCheckUpdatesThread(intervalInSeconds int, gitHubUser string, gitHubProject string, currentVersion string) *CheckUpdatesThread {
+func NewCheckUpdatesThread(intervalInSeconds int, gitHubUser string, gitHubProject string, currentVersion string, excludeMasterAndSnapshots bool) *CheckUpdatesThread {
 	t := CheckUpdatesThread{
-		Cron:              nil,
-		Listeners:         []UpdateDetectedListener{},
-		IntervalInSeconds: intervalInSeconds,
-		GitHubUser:        gitHubUser,
-		GitHubProject:     gitHubProject,
-		CurrentVersion:    currentVersion,
+		Cron:                      nil,
+		Listeners:                 []UpdateDetectedListener{},
+		IntervalInSeconds:         intervalInSeconds,
+		GitHubUser:                gitHubUser,
+		GitHubProject:             gitHubProject,
+		CurrentVersion:            currentVersion,
+		ExcludeMasterAndSnapshots: excludeMasterAndSnapshots,
 	}
 	return &t
 }
@@ -59,7 +62,7 @@ func (t *CheckUpdatesThread) Check() {
 	Log.Infof("Version from github: %v; local version: %v.", *release.TagName, t.CurrentVersion)
 
 	notify := false
-	if t.CurrentVersion == "master" {
+	if t.ExcludeMasterAndSnapshots && (t.CurrentVersion == "master" || strings.HasPrefix(t.CurrentVersion, "SNAPSHOT-") || strings.HasPrefix(t.CurrentVersion, "SNAP-")) {
 		notify = true
 	} else {
 		currentVersion, err := version.NewVersion(t.CurrentVersion)
