@@ -74,6 +74,191 @@ func RunCommandAndWait(initialPath string, stdin io.Reader, command string, argu
 
 }
 
+func RunCommandProxified(pm *ProxyManager, destinationUrl string, destinationAddress string, initialPath string, stdin io.Reader, command string, arguments []string, env map[string]string, callback func(error, int, int, string, string)) (error, int, int, string, string) {
+
+	var err error
+
+	if env == nil {
+		env = map[string]string{}
+		for _, e := range os.Environ() {
+			elems := strings.SplitN(e, "=", 2)
+			val := ""
+			if len(elems) >= 2 {
+				val = elems[1]
+			}
+			env[elems[0]] = val
+		}
+	}
+
+	var cmd *exec.Cmd
+	var p *Proxy
+	if pm != nil {
+
+		if destinationUrl != "" {
+
+			p, err = pm.GetProxyForUrl(destinationUrl)
+			if err != nil {
+				newErr := errors.Wrap(err, "Error checking if proxy is valid for URL")
+				if callback != nil {
+					callback(newErr, 0, 0, "", "")
+				}
+				return newErr, 0, 0, "", ""
+			}
+
+		} else if destinationAddress != "" {
+
+			p, err = pm.GetProxyForAddress(destinationAddress)
+			if err != nil {
+				newErr := errors.Wrap(err, "Error checking if proxy is valid for address")
+				if callback != nil {
+					callback(newErr, 0, 0, "", "")
+				}
+				return newErr, 0, 0, "", ""
+			}
+
+		} else {
+			p, err = pm.GetDefaultProxy()
+			if err != nil {
+				newErr := errors.Wrap(err, "Error getting default proxy")
+				if callback != nil {
+					callback(newErr, 0, 0, "", "")
+				}
+				return newErr, 0, 0, "", ""
+			}
+		}
+
+	}
+
+	if p != nil {
+
+		proxychainsPath, err := Which("proxychains4")
+		if err != nil {
+			newErr := errors.Wrap(err, "Error checking if proxychains is installed")
+			if callback != nil {
+				callback(newErr, 0, 0, "", "")
+			}
+			return newErr, 0, 0, "", ""
+		}
+
+		if proxychainsPath == "" {
+			if callback != nil {
+				callback(ProxychainsNotFoundError, 0, 0, "", "")
+			}
+			return ProxychainsNotFoundError, 0, 0, "", ""
+		}
+
+		password, err := p.GetPassword()
+		if err != nil {
+			newErr := errors.Wrap(err, "Error getting proxy password")
+			if callback != nil {
+				callback(newErr, 0, 0, "", "")
+			}
+			return newErr, 0, 0, "", ""
+		}
+
+		proxychainsConfigFileContents := bytes.Buffer{}
+		proxychainsConfigFileContents.WriteString("strict_chain\n")
+		proxychainsConfigFileContents.WriteString("proxy_dns\n")
+		proxychainsConfigFileContents.WriteString("[ProxyList]\n")
+		if p.Username != "" && password != "" {
+			proxychainsConfigFileContents.WriteString(fmt.Sprintf("%v %v %v %v %v\n", p.Protocol, p.Address, p.Port, p.Username, password))
+		} else {
+			proxychainsConfigFileContents.WriteString(fmt.Sprintf("%v %v %v\n", p.Protocol, p.Address, p.Port))
+		}
+
+		proxychainsConfigFile, err := ioutil.TempFile("", "")
+		if err != nil {
+			newErr := errors.Wrap(err, "Error generating temporary proxychains config file")
+			if callback != nil {
+				callback(newErr, 0, 0, "", "")
+			}
+			return newErr, 0, 0, "", ""
+		}
+
+		_, err = proxychainsConfigFileContents.WriteTo(proxychainsConfigFile)
+		if err != nil {
+			newErr := errors.Wrap(err, "Error writing temporary proxychains config file")
+			if callback != nil {
+				callback(newErr, 0, 0, "", "")
+			}
+			return newErr, 0, 0, "", ""
+		}
+		proxychainsConfigFile.Close()
+		Log.Debugf("Proxychains config file generated in %v", proxychainsConfigFile.Name())
+		defer os.Remove(proxychainsConfigFile.Name())
+
+		env["PROXYCHAINS_CONF_FILE"] = proxychainsConfigFile.Name()
+		env["PROXYCHAINS_QUIET_MODE"] = "1"
+
+		newCommand := proxychainsPath
+		newArguments := append([]string{command}, arguments...)
+		cmd = exec.Command(newCommand, newArguments...)
+
+	} else {
+		cmd = exec.Command(command, arguments...)
+	}
+
+	envList := []string{}
+	for key, val := range env {
+		envList = append(envList, fmt.Sprintf("%v=%v", key, val))
+	}
+	cmd.Env = envList
+
+	if stdin != nil {
+		cmd.Stdin = stdin
+	}
+
+	var outBuff bytes.Buffer
+	cmd.Stdout = &outBuff
+
+	var errBuff bytes.Buffer
+	cmd.Stderr = &errBuff
+
+	if initialPath != "" {
+		cmd.Dir = initialPath
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		if callback != nil {
+			callback(err, 0, 0, "", "")
+		}
+		return err, 0, 0, "", ""
+	}
+
+	state, err := cmd.Process.Wait()
+	if err != nil {
+		if callback != nil {
+			callback(err, 0, 0, "", "")
+		}
+		return err, 0, 0, "", ""
+	}
+
+	exitCode := state.Sys().(syscall.WaitStatus).ExitStatus()
+	pid := cmd.Process.Pid
+
+	if callback != nil {
+		callback(nil, pid, exitCode, outBuff.String(), errBuff.String())
+	}
+
+	return nil, pid, exitCode, outBuff.String(), errBuff.String()
+
+}
+
+func CombineStdErrOutput(stdOut string, errOut string) string {
+	stdOut = strings.TrimSuffix(stdOut, "\n")
+	errOut = strings.TrimSuffix(errOut, "\n")
+	if stdOut != "" && errOut != "" {
+		return fmt.Sprintf("%v\n%v", stdOut, errOut)
+	} else if stdOut != "" {
+		return stdOut
+	} else if errOut != "" {
+		return errOut
+	} else {
+		return ""
+	}
+}
+
 // Returns the full path of the specified command, if it is in the path.
 // If the command is not found, no error is returned, but an empty string as path.
 func Which(command string) (string, error) {

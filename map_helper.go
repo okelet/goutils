@@ -9,7 +9,8 @@ import (
 )
 
 type MapHelper struct {
-	Data map[string]interface{}
+	Filename string
+	Data     map[string]interface{}
 }
 
 func NewEmptyMapHelper() *MapHelper {
@@ -33,7 +34,7 @@ func NewMapHelperFromJsonFile(configPath string, failIfNotFound bool) (*MapHelpe
 		if failIfNotFound {
 			return nil, errors.Errorf("File %v doesn't exist.", configPath)
 		} else {
-			return NewEmptyMapHelper(), nil
+			return &MapHelper{Filename: configPath, Data: map[string]interface{}{}}, nil
 		}
 	}
 
@@ -50,7 +51,7 @@ func NewMapHelperFromJsonFile(configPath string, failIfNotFound bool) (*MapHelpe
 		return nil, errors.Wrapf(err, "Error loading JSON from file %v.", configPath)
 	}
 
-	return &MapHelper{Data: x}, nil
+	return &MapHelper{Filename: configPath, Data: x}, nil
 
 }
 
@@ -68,6 +69,29 @@ func (h *MapHelper) Keys() []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+func (h *MapHelper) Exists(key string) bool {
+	if _, ok := h.Data[key]; ok {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (h *MapHelper) Delete(key string) {
+	delete(h.Data, key)
+}
+
+func (h *MapHelper) Get(key string, value interface{}) interface{} {
+	if val, ok := h.Data[key]; ok {
+		return val
+	}
+	return value
+}
+
+func (h *MapHelper) Set(key string, value interface{}) {
+	h.Data[key] = value
 }
 
 func (h *MapHelper) GetBoolean(key string, value bool) bool {
@@ -146,12 +170,12 @@ func (h *MapHelper) SetListOfStrings(key string, value []string) {
 
 func (h *MapHelper) GetHelper(key string) *MapHelper {
 	if val, ok := h.Data[key]; ok {
-		if w, ok := val.(map[string]interface{}); ok {
+		if w, ok := val.(*MapHelper); ok {
+			return w
+		} else if w, ok := val.(map[string]interface{}); ok {
 			helper := &MapHelper{Data: w}
 			h.Data[key] = helper
 			return helper
-		} else if w, ok := val.(*MapHelper); ok {
-			return w
 		}
 	}
 	helper := NewEmptyMapHelper()
@@ -164,23 +188,23 @@ func (h *MapHelper) SetHelper(key string, value *MapHelper) {
 }
 
 func (h *MapHelper) GetListOfHelpers(key string) []*MapHelper {
-	var list []*MapHelper
 	if val, ok := h.Data[key]; ok {
-		if w, ok := val.([]interface{}); ok {
+		if w, ok := val.([]*MapHelper); ok {
+			return w
+		} else if w, ok := val.([]interface{}); ok {
+			list := []*MapHelper{}
 			for _, curval := range w {
 				list = append(list, NewMapHelperFromData(curval.(map[string]interface{})))
 			}
+			return list
 		}
 	}
-	return list
+	// When key doesn't exist or the key is not a list
+	return []*MapHelper{}
 }
 
 func (h *MapHelper) SetListOfHelpers(key string, data []*MapHelper) {
-	l := []interface{}{}
-	for _, v := range data {
-		l = append(l, v.Data)
-	}
-	h.Data[key] = l
+	h.Data[key] = data
 }
 
 func (h *MapHelper) GetList(key string, value []interface{}) []interface{} {
@@ -196,10 +220,6 @@ func (h *MapHelper) SetList(key string, value []interface{}) {
 	h.Data[key] = value
 }
 
-func (h *MapHelper) Delete(key string) {
-	delete(h.Data, key)
-}
-
 func (h *MapHelper) GenerateMap() map[string]interface{} {
 	d := map[string]interface{}{}
 	for key, val := range h.Data {
@@ -207,80 +227,51 @@ func (h *MapHelper) GenerateMap() map[string]interface{} {
 			// Nil values
 			d[key] = nil
 		} else {
-			t := convertValueToBasic(val)
-			if t != nil {
-				// If nil, it is not a basic type
-				d[key] = t
+			if w, ok := val.(*MapHelper); ok {
+				d[key] = w.GenerateMap()
+			} else if w, ok := val.([]*MapHelper); ok {
+				data := []map[string]interface{}{}
+				for _, v := range w {
+					data = append(data, v.GenerateMap())
+				}
+				d[key] = data
+			} else {
+				d[key] = val
 			}
 		}
 	}
 	return d
 }
 
-func convertValueToBasic(val interface{}) interface{} {
-	if w, ok := val.(bool); ok {
-		return w
-	} else if w, ok := val.(int); ok {
-		return w
-	} else if w, ok := val.(int8); ok {
-		return w
-	} else if w, ok := val.(int16); ok {
-		return w
-	} else if w, ok := val.(int32); ok {
-		return w
-	} else if w, ok := val.(int64); ok {
-		return w
-	} else if w, ok := val.(float32); ok {
-		return w
-	} else if w, ok := val.(float64); ok {
-		return w
-	} else if w, ok := val.(string); ok {
-		return w
-	} else if w, ok := val.(map[string]interface{}); ok {
-		return w
-	} else if w, ok := val.(*MapHelper); ok {
-		return w.GenerateMap()
-	} else if w, ok := val.([]string); ok {
-		return w
-	} else if w, ok := val.([]bool); ok {
-		return w
-	} else if w, ok := val.([]int); ok {
-		return w
-	} else if w, ok := val.([]int8); ok {
-		return w
-	} else if w, ok := val.([]int16); ok {
-		return w
-	} else if w, ok := val.([]int32); ok {
-		return w
-	} else if w, ok := val.([]int64); ok {
-		return w
-	} else if w, ok := val.([]float32); ok {
-		return w
-	} else if w, ok := val.([]float64); ok {
-		return w
-	} else if w, ok := val.([]interface{}); ok {
-		a := []interface{}{}
-		for _, v := range w {
-			t := convertValueToBasic(v)
-			if t != nil {
-				a = append(a, t)
-			}
-		}
-		return a
+func (h *MapHelper) GeneratePrettyJson() ([]byte, error) {
+	return h.GenerateJson(true)
+}
+
+func (h *MapHelper) GenerateJson(pretty bool) ([]byte, error) {
+	if pretty {
+		return json.MarshalIndent(h.GenerateMap(), "", "  ")
+	} else {
+		return json.Marshal(h.GenerateMap())
 	}
-	return nil
 }
 
-func (h *MapHelper) GenerateJson() ([]byte, error) {
-	return json.MarshalIndent(h.GenerateMap(), "", "  ")
+func (h *MapHelper) SaveToJson(pretty bool) error {
+	if h.Filename == "" {
+		return errors.New("Filename not set")
+	}
+	return h.SaveToJsonFile(h.Filename, pretty)
 }
 
-func (h *MapHelper) SaveToJsonFile(path string) error {
-	data, err := h.GenerateJson()
+func (h *MapHelper) SaveToJsonFile(path string, pretty bool) error {
+	return h.SaveToJsonFileWithMode(path, pretty, 0666)
+}
+
+func (h *MapHelper) SaveToJsonFileWithMode(path string, pretty bool, mode os.FileMode) error {
+	data, err := h.GenerateJson(pretty)
 	if err != nil {
 		return errors.Wrapf(err, "Error marshalling map")
 	}
-	err = ioutil.WriteFile(path, data, 0600)
+	err = ioutil.WriteFile(path, data, mode)
 	if err != nil {
 		return errors.Wrapf(err, "Error saving JSON file")
 	}

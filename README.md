@@ -8,6 +8,7 @@ Some simple utility functions, used by most of my projects.
 
 ## Go configuration
 
+```
 cat >> ${HOME}/.profile <EOF
 export GOROOT=/usr/lib/go-1.8
 export PATH=${PATH}:${HOME}/bin:${GOROOT}/bin
@@ -21,3 +22,11 @@ for i in ${HOME}/tmp/go ${HOME}/Dropbox/Proyectos/go ; do
 	export PATH=${PATH}:${i}/bin
 done
 EOF
+```
+
+
+## Me
+
+Website (in spanish): https://okelet.github.io
+
+Email: okelet@gmail.com
